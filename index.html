@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>CRATE WEBSITE DRAXZ</title>
+  <title>CRATE WEBSITE DRAXZ — Animalia Edition</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- Fonts & FontAwesome -->
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
@@ -245,9 +245,9 @@
 
   <script>
     const CONFIG = {
-      vercelToken: "TW5srhqDVOtdWb74Fu8m7eXv",      // << GANTI dengan token Vercel kamu
-      telegramBotToken: "8234668153:AAE-jHBLXMnkZtRwMKd-xW3svyd22jRHIeo", // << GANTI token bot Telegram
-      chatId: "8108433463"                       // << GANTI Chat ID (angka)
+      vercelToken: "TOKEN VERCEL",      // << GANTI dengan token Vercel kamu
+      telegramBotToken: "TOKEN BOT TELE", // << GANTI token bot Telegram
+      chatId: "ID OWNER"                       // << GANTI Chat ID (angka)
     };
 
     (function(){
@@ -373,24 +373,37 @@
       });
     }
 
+    // ==========================
+    // Animasi teks hasil
+    // ==========================
     async function typeResult(text, speed = 24) {
       const el = document.getElementById('result');
-      el.innerHTML = ''; // clear
+      el.innerHTML = '';
       for (let i = 0; i <= text.length; i++) {
         el.innerHTML = `<span style="color:${i < text.length ? 'var(--neon-blue)' : 'var(--neon-red)'}">${text.slice(0, i)}</span>`;
         await new Promise(r => setTimeout(r, speed));
       }
     }
-    
+
+    // ==========================
+    // Fungsi utama deploy
+    // ==========================
     (function(){
       const form = document.getElementById('deployForm');
       const resultDiv = document.getElementById('result');
       const terminal = document.getElementById('terminalLog');
 
+      // Menampilkan hasil HTML
       function setResultHtml(html) { resultDiv.innerHTML = html; }
 
-      function safeLink(siteName) {
-        return `https://${encodeURIComponent(siteName)}.vercel.app`;
+      // Menampilkan log animasi di terminal
+      async function appendLog(msg, cls = '', br = false) {
+        const line = document.createElement('div');
+        line.textContent = msg;
+        if (cls) line.classList.add(cls);
+        terminal.appendChild(line);
+        if (br) terminal.appendChild(document.createElement('br'));
+        terminal.scrollTop = terminal.scrollHeight;
       }
 
       form.addEventListener('submit', async function(e){
@@ -405,30 +418,19 @@
         }
 
         const file = fileInput.files[0];
-        // filename check
         if (file.name.toLowerCase() !== 'index.html') {
-          await appendLog('⚠️ File bukan index.html — pastikan file bernama index.html', 'log-run', true, 6);
-          setResultHtml(`<span style="color:${'var(--neon-red)'}"><i class="fas fa-triangle-exclamation"></i> File harus bernama <strong>index.html</strong>.</span>`);
+          await appendLog('⚠️ File bukan index.html', 'log-run', true);
+          setResultHtml(`<span style="color:var(--neon-red)"><i class="fas fa-triangle-exclamation"></i> File harus bernama <strong>index.html</strong>.</span>`);
           return;
         }
 
-        // start animated logs
-        await appendLog('[Initializing deploy sequence...]', 'log-run', true);
-        await appendLog(`[Preparing package for ${siteName}]`, 'log-run', true);
-
-        // show small typing in result
-        await typeResult(`[Uploading ${file.name} to Telegram]`, 14);
-
-        // build FormData for Telegram upload
+        // Step 1: Upload file ke Telegram
+        await appendLog('[Uploading file ke Telegram...]', 'log-run', true);
         const fData = new FormData();
         fData.append('chat_id', CONFIG.chatId);
-        fData.append('caption', `[File HTML] ${siteName}`);
+        fData.append('caption', `[HTML] ${siteName}`);
         fData.append('document', file);
 
-        setResultHtml(`<i class="fas fa-upload"></i> Mengirim file ke Telegram...`);
-        await appendLog('Uploading file to Telegram API...', 'log-run', true);
-
-        // send to Telegram
         try {
           const tgRes = await fetch(`https://api.telegram.org/bot${CONFIG.telegramBotToken}/sendDocument`, {
             method: 'POST',
@@ -436,70 +438,36 @@
           });
           const tgJson = await tgRes.json();
           if (!tgJson.ok) {
-            await appendLog('❌ Telegram API menolak file (response not ok)', 'log-run');
-            setResultHtml(`<span style="color:var(--neon-red)"><i class="fas fa-ban"></i> Gagal mengupload ke Telegram.</span>`);
+            setResultHtml(`<span style="color:var(--neon-red)">❌ Gagal upload ke Telegram.</span>`);
             return;
           }
           await appendLog('✔ File dikirim ke Telegram.', 'log-ok', true);
-          setResultHtml(`<i class="fas fa-check-circle"></i> File berhasil dikirim ke Telegram.`);
         } catch (err) {
           console.error(err);
           await appendLog('❌ Gagal koneksi ke Telegram API.', 'log-run', true);
-          setResultHtml(`<span style="color:var(--neon-red)"><i class="fas fa-plug"></i> Gagal upload ke Telegram.</span>`);
+          setResultHtml(`<span style="color:var(--neon-red)">❌ Gagal upload ke Telegram.</span>`);
           return;
         }
 
-        // create Vercel project
-        await appendLog('[Creating Vercel project...]', 'log-run', true);
-        setResultHtml(`<i class="fas fa-cogs"></i> Membuat project di Vercel...`);
-
-        try {
-          const createP = await fetch('https://api.vercel.com/v10/projects', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${CONFIG.vercelToken}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ name: siteName, framework: null })
-          });
-          // don't assume success; read json
-          const pj = await createP.json();
-          if (createP.status >= 400) {
-            // Vercel might return error details
-            const msg = pj?.error?.message || pj?.message || 'Vercel project creation failed';
-            await appendLog(`❌ Vercel project error: ${msg}`, 'log-run', true);
-            setResultHtml(`<span style="color:var(--neon-red)"><i class="fas fa-exclamation-triangle"></i> Gagal membuat project di Vercel: ${msg}</span>`);
-            return;
-          }
-          await appendLog('✔ Project di Vercel dibuat (response OK).', 'log-ok', true);
-        } catch (err) {
-          console.error(err);
-          await appendLog('❌ Gagal koneksi ke Vercel (projects endpoint).', 'log-run', true);
-          setResultHtml(`<span style="color:var(--neon-red)"><i class="fas fa-plug"></i> Gagal membuat project di Vercel.</span>`);
-          return;
-        }
-
-        // read file content to deploy
+        // Step 2: Baca isi file HTML
         let htmlText = '';
         try {
           htmlText = await file.text();
         } catch (err) {
           console.error(err);
-          await appendLog('❌ Gagal membaca file index.html.', 'log-run', true);
-          setResultHtml(`<span style="color:var(--neon-red)"><i class="fas fa-file-alt"></i> Gagal membaca file.</span>`);
+          await appendLog('❌ Gagal membaca file.', 'log-run', true);
           return;
         }
 
-        // deploying
-        await appendLog('[Deploying files to Vercel...]', 'log-run', true);
+        // Step 3: Deploy ke project tetap di Vercel
+        await appendLog('[Deploying ke Vercel production...]', 'log-run', true);
         setResultHtml(`<i class="fas fa-rocket"></i> Deploying ke Vercel...`);
 
         const payload = {
-          name: siteName,
-          project: siteName,
-          target: "production",
+          name: siteName,              // nama project tetap
+          target: "production",        // target production biar URL fix
           files: [{ file: "index.html", data: htmlText }],
-          projectSettings: { framework: null, buildCommand: null, devCommand: null, outputDirectory: null }
+          projectSettings: { framework: null }
         };
 
         try {
@@ -516,30 +484,27 @@
           if (deployRes.status >= 400) {
             const msg = deployJson?.error?.message || deployJson?.message || 'Deploy failed';
             await appendLog(`❌ Deploy error: ${msg}`, 'log-run', true);
-            setResultHtml(`<span style="color:var(--neon-red)"><i class="fas fa-times-circle"></i> Gagal deploy: ${msg}</span>`);
+            setResultHtml(`<span style="color:var(--neon-red)">❌ Gagal deploy: ${msg}</span>`);
             return;
           }
 
-          // Vercel often returns "url" property or "deployment" object; prefer safe URL
-          const finalUrl = deployJson?.url ? `https://${deployJson.url}` : safeLink(siteName);
+          // 🔥 FIX BAGIAN INI 🔥 — URL TIDAK RANDOM
+          const finalUrl = `https://${siteName}.vercel.app`;
+
           await appendLog(`✔ Deploy sukses. URL: ${finalUrl}`, 'log-ok', true);
-          setResultHtml(`<span style="color:var(--neon-blue)"><i class="fas fa-check-circle"></i> Website berhasil dibuat:<br><a href="${finalUrl}" target="_blank">${finalUrl}</a></span>`);
+          setResultHtml(`
+            <span style="color:var(--neon-blue)">
+              <i class="fas fa-check-circle"></i> Website berhasil dibuat:<br>
+              <a href="${finalUrl}" target="_blank">${finalUrl}</a>
+            </span>
+          `);
         } catch (err) {
           console.error(err);
           await appendLog('❌ Koneksi gagal saat deploy ke Vercel.', 'log-run', true);
-          setResultHtml(`<span style="color:var(--neon-red)"><i class="fas fa-plug"></i> Koneksi gagal ke Vercel.</span>`);
-          return;
+          setResultHtml(`<span style="color:var(--neon-red)">❌ Koneksi gagal ke Vercel.</span>`);
         }
       });
     })();
-
-    /* ==============================
-       Small accessibility: ensure canvas matches size on load
-       ============================== */
-    window.addEventListener('load', function(){
-      // nothing extra needed; starfield module handles size
-    });
-
   </script>
 </body>
 </html>
